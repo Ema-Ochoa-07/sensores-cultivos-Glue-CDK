@@ -9,8 +9,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <cdk.version>2.181.1</cdk.version>
-        <constructs.version>[10.0.0,11.0.0)</constructs.version>
+        <cdk.version>2.100.0</cdk.version> <!-- Ajustado a versión estable -->
+        <constructs.version>10.2.70</constructs.version> <!-- Compatible con CDK 2.100.0 -->
         <junit.version>5.7.1</junit.version>
     </properties>
 
@@ -45,6 +45,13 @@
         </plugins>
     </build>
 
+    <repositories>
+        <repository>
+            <id>aws-cdk</id>
+            <url>https://aws.github.io/aws-cdk-java/maven</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <!-- AWS Cloud Development Kit -->
         <dependency>
@@ -57,13 +64,21 @@
             <groupId>software.constructs</groupId>
             <artifactId>constructs</artifactId>
             <version>${constructs.version}</version>
-        </dependency>
+        </dependency>     
 
         <dependency>
-          <groupId>org.junit.jupiter</groupId>
-          <artifactId>junit-jupiter</artifactId>
-          <version>${junit.version}</version>
-          <scope>test</scope>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+
+        <!--dependencia aws-cdk -lib para que funcione step functions -->
+        <dependency>
+            <groupId>software.amazon.awscdk</groupId>
+            <artifactId>aws-cdk-lib</artifactId>
+            <version>${cdk.version}</version>
         </dependency>
     </dependencies>
 </project>

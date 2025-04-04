@@ -3612,3 +3612,15 @@ SEVERE: A severe compiler error occurred, full details of the error can be found
 2025.04.04 03:40:12 INFO  no build target found for C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\src\main\java\com\myorg\EtlCultivoSensoresStack.java. Using presentation compiler with project's scala-library version: 3.3.5
 abr 04, 2025 3:40:13 A. M. scala.meta.internal.pc.CompilerAccess handleError
 SEVERE: A severe compiler error occurred, full details of the error can be found in the error report C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\.metals\.reports\metals-full\2025-04-04\r_compiler-error_03-40-13-247.md
+2025.04.04 03:47:14 INFO  no build target found for C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\src\main\java\com\myorg\EtlCultivoSensoresStack.java. Using presentation compiler with project's scala-library version: 3.3.5
+abr 04, 2025 3:47:14 A. M. scala.meta.internal.pc.CompilerAccess handleError
+SEVERE: A severe compiler error occurred, full details of the error can be found in the error report C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\.metals\.reports\metals-full\2025-04-04\r_compiler-error_03-47-14-525.md
+2025.04.04 03:47:14 INFO  no build target found for C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\src\main\java\com\myorg\EtlCultivoSensoresStack.java. Using presentation compiler with project's scala-library version: 3.3.5
+abr 04, 2025 3:47:15 A. M. scala.meta.internal.pc.CompilerAccess handleError
+SEVERE: A severe compiler error occurred, full details of the error can be found in the error report C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\.metals\.reports\metals-full\2025-04-04\r_compiler-error_03-47-15-462.md
+2025.04.04 03:47:17 INFO  no build target found for C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\src\main\java\com\myorg\EtlCultivoSensoresStack.java. Using presentation compiler with project's scala-library version: 3.3.5
+abr 04, 2025 3:47:17 A. M. scala.meta.internal.pc.CompilerAccess handleError
+SEVERE: A severe compiler error occurred, full details of the error can be found in the error report C:\Users\ORTEL\Documents\Enmanuel\AWS-FundacionSEPAV\2 StepFunct - GLUE Sparck-  [BIG DATA]\etl-cultivo-sensores\.metals\.reports\metals-full\2025-04-04\r_compiler-error_03-47-17-555.md
+2025.04.04 03:47:51 INFO  Shutting down server
+2025.04.04 03:47:51 INFO  shutting down Metals
+2025.04.04 03:47:51 INFO  Exiting server

@@ -5,7 +5,6 @@ import software.amazon.awscdk.services.glue.*;
 import software.amazon.awscdk.services.rds.*;
 import software.amazon.awscdk.services.s3.*;
 import software.amazon.awscdk.services.iam.*;
-
 import java.util.Map;
 
 public class JobGlueConectRDS extends Construct {
@@ -18,12 +17,11 @@ public class JobGlueConectRDS extends Construct {
             .role(glueRole.getRoleArn())
             .command(CfnJob.JobCommandProperty.builder()
                 .name("glueetl")
-                ..scriptLocation("s3://aws-glue-scripts-" + accountId + "/scripts/extract-cultivo-rds-to-s3.scala")
-                .language("scala")
+                .scriptLocation("s3://aws-glue-scripts-" + accountId + "/scripts/extract-cultivo-rds-to-s3.scala")
                 .build())
             .defaultArguments(Map.of(
                 "--RDS_ENDPOINT", rdsSensores.getDbInstanceEndpointAddress(),
-                "--RDS_DB_NAME", rdsSensores.getDbName(),
+                "--RDS_DB_NAME", "cultivo_bd",
                 "--SECRET_NAME", rdsSensores.getSecret().getSecretName(),
                 "--S3_OUTPUT_PATH", "s3://" + bucketSalida.getBucketName() + "/raw-data/"
             ))

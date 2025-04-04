@@ -12,7 +12,20 @@ import software.amazon.awscdk.services.iam.*;
 import software.amazon.awscdk.CfnOutput;
 import software.amazon.awscdk.services.s3.deployment.BucketDeployment;
 import software.amazon.awscdk.services.s3.deployment.Source;
+import software.amazon.awscdk.services.ec2.InstanceClass;
+import software.amazon.awscdk.services.ec2.InstanceSize;
+import software.amazon.awscdk.services.ec2.InstanceType;
+import software.amazon.awscdk.services.ec2.SubnetSelection;
+import software.amazon.awscdk.services.ec2.SubnetType;
+import software.amazon.awscdk.services.ec2.Port;
+
 import java.util.List;
+
+import com.myorg.jobs.JobGlueConectRDS;
+import com.myorg.jobs.JobGlueViewS3;
+
+import software.amazon.awscdk.RemovalPolicy;
+
 
 public class EtlCultivoSensoresStack extends Stack {
 
@@ -32,20 +45,30 @@ public class EtlCultivoSensoresStack extends Stack {
 
         // =============================================
         // 2. RDS MYSQL (CONFIGURACIÓN COMPLETA)
-        // =============================================
+        // =============================================            
         DatabaseInstance rdsSensores = DatabaseInstance.Builder.create(this, "RdsSensoresCultivo")
-            .engine(DatabaseInstanceEngine.mysql(MysqlInstanceEngineProps.builder()
-                .version(MysqlEngineVersion.VER_8_0)
-                .build()))
-            .instanceType(InstanceType.of(InstanceClass.BURSTABLE2, InstanceSize.SMALL))
-            .credentials(Credentials.fromGeneratedSecret("admin"))
-            .vpc(Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
-                .isDefault(true)
-                .build()))
-            .port(3306)
-            .databaseName("cultivo_bd")
-            .storageEncrypted(true)
-            .build();
+        .engine(DatabaseInstanceEngine.mysql(MySqlInstanceEngineProps.builder()
+            .version(MysqlEngineVersion.VER_8_0)
+            .build()))
+        .instanceType(InstanceType.of(InstanceClass.BURSTABLE3, InstanceSize.SMALL)) // Corrección aquí
+        .credentials(Credentials.fromGeneratedSecret("admin"))
+        .vpc(Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
+            .isDefault(true)
+            .build()))
+        .vpcSubnets(SubnetSelection.builder()
+            .subnetType(SubnetType.PUBLIC)
+            .build())
+        .port(3306)
+        .databaseName("cultivo_bd")
+        .storageEncrypted(true)
+        .build();
+    
+                // =============================================
+                // 2.1 PERMITIR ACCESO AL PUERTO 3306 (MYSQL)
+                // =============================================
+                rdsSensores.getConnections().allowFromAnyIpv4(Port.tcp(3306), 
+        "Allow inbound MySQL access from any IP (testing only)" 
+);
 
         // ===================================================================
         // 3. GLUE DATABASE PARA METADATOS
@@ -92,15 +115,20 @@ public class EtlCultivoSensoresStack extends Stack {
             .removalPolicy(RemovalPolicy.DESTROY)
             .build();
 
+
         // ==================================
         // 7. ROL PARA DESPLIEGUE DE SCRIPTS
         // ==================================
         Role deploymentRole = Role.Builder.create(this, "DeploymentRole")
-            .assumedBy(new ServicePrincipal("cloudformation.amazonaws.com"))
-            .managedPolicies(List.of(
-                ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
-            ))
-            .build();
+        .assumedBy(new CompositePrincipal(
+            new ServicePrincipal("cloudformation.amazonaws.com"),
+            new ServicePrincipal("lambda.amazonaws.com") // 🔹 Agregamos Lambda aquí
+        ))
+        .managedPolicies(List.of(
+            ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+        ))
+        .build();
+
 
         // ==================================
         // 8. SUBIR SCRIPTS AL BUCKET (DESDE CARPETA LOCAL './scripts')

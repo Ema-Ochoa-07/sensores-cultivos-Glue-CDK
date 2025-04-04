@@ -10,7 +10,7 @@ object GlueApp {
   def main(sysArgs: Array[String]): Unit = {
     // 1. Inicializar contexto de Glue y Spark
     val spark: SparkSession = SparkSession.builder().getOrCreate()
-    val glueContext: GlueContext = new GlueContext(spark.sparkContext)
+    val glueContext: GlueContext = new GlueContext(spark.sparkContext) 
 
     // 2. Leer datos desde RDS MySQL (usando conexión JDBC)
     val jdbcUrl = s"jdbc:mysql://${sysArgs(0)}:3306/cultivo_bd"

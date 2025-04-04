@@ -15,6 +15,15 @@
     </properties>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/java/com/myorg/scripts</directory>
+                <includes>
+                    <include>*.scala</include>
+                </includes>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

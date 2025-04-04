@@ -12,6 +12,7 @@ import software.amazon.awscdk.services.iam.*;
 import software.amazon.awscdk.CfnOutput;
 import software.amazon.awscdk.services.s3.deployment.BucketDeployment;
 import software.amazon.awscdk.services.s3.deployment.Source;
+import software.amazon.awscdk.services.ec2.IVpc;
 import software.amazon.awscdk.services.ec2.InstanceClass;
 import software.amazon.awscdk.services.ec2.InstanceSize;
 import software.amazon.awscdk.services.ec2.InstanceType;
@@ -21,6 +22,9 @@ import software.amazon.awscdk.services.ec2.Port;
 import software.amazon.awscdk.services.stepfunctions.*;
 import software.amazon.awscdk.services.stepfunctions.tasks.*;
 import software.amazon.awscdk.services.rds.Credentials;
+import software.amazon.awscdk.services.lambda.Function;
+import software.amazon.awscdk.services.lambda.Runtime;
+import software.amazon.awscdk.services.lambda.Code;
 
 
 
@@ -38,6 +42,11 @@ public class EtlCultivoSensoresStack extends Stack {
         super(scope, id, props);
 
         String accountId = this.getAccount();
+
+        // Definir la VPC que se va a utlizar en las diferemtes funciones
+        IVpc vpc = Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
+            .isDefault(true)
+            .build());
 
         // =============================================
         // 1. BUCKET S3 PARA DATOS PROCESADOS
@@ -127,7 +136,7 @@ public class EtlCultivoSensoresStack extends Stack {
         Role deploymentRole = Role.Builder.create(this, "DeploymentRole")
         .assumedBy(new CompositePrincipal(
             new ServicePrincipal("cloudformation.amazonaws.com"),
-            new ServicePrincipal("lambda.amazonaws.com") // 🔹 Agregamos Lambda aquí
+            new ServicePrincipal("lambda.amazonaws.com") 
         ))
         .managedPolicies(List.of(
             ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
@@ -150,5 +159,17 @@ public class EtlCultivoSensoresStack extends Stack {
         // =====================================
         new JobGlueConectRDS(this, "GlueJobExtraccion", glueRole, rdsSensores, bucketSalida, accountId);
         new JobGlueViewS3(this, "GlueJobTransformacion", glueRole, bucketSalida, accountId);
+
+
+        // ==============================
+        // 10. AGREGAR LA LAMBDA DE RIEGO
+        // ==============================
+        Function riegoCultivoLambda = Function.Builder.create(this, "RiegoCultivoLambda")
+        .runtime(Runtime.JAVA_11)
+        .handler("com.myorg.lambda.RiegoCultivo::handleRequest") // 👈 Ruta completa al método
+        .code(Code.fromAsset("lambda"))
+        .vpc(vpc)
+        .build();
+
     }
 }

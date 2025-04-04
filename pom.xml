@@ -16,6 +16,7 @@
 
     <build>
         <resources>
+            <!--resource para que se permitan trabajar con los scripts de scala -->
             <resource>
                 <directory>src/main/java/com/myorg/scripts</directory>
                 <includes>
@@ -73,12 +74,18 @@
             <scope>test</scope>
         </dependency>
 
-
         <!--dependencia aws-cdk -lib para que funcione step functions -->
         <dependency>
             <groupId>software.amazon.awscdk</groupId>
             <artifactId>aws-cdk-lib</artifactId>
             <version>${cdk.version}</version>
+        </dependency>
+
+        <!--dependencia para que funcione las lambdas en el stack -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-core</artifactId>
+            <version>1.2.2</version>
         </dependency>
     </dependencies>
 </project>

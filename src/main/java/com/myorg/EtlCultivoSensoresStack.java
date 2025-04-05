@@ -7,6 +7,8 @@ import software.amazon.awscdk.services.s3.Bucket;
 import software.amazon.awscdk.services.rds.*;
 import software.amazon.awscdk.services.ec2.Vpc;
 import software.amazon.awscdk.services.ec2.VpcLookupOptions;
+import software.amazon.awscdk.services.events.Rule;
+import software.amazon.awscdk.services.events.targets.SfnStateMachine;
 import software.amazon.awscdk.services.glue.*;
 import software.amazon.awscdk.services.iam.*;
 import software.amazon.awscdk.CfnOutput;
@@ -19,12 +21,17 @@ import software.amazon.awscdk.services.ec2.InstanceType;
 import software.amazon.awscdk.services.ec2.SubnetSelection;
 import software.amazon.awscdk.services.ec2.SubnetType;
 import software.amazon.awscdk.services.ec2.Port;
-import software.amazon.awscdk.services.stepfunctions.*;
-import software.amazon.awscdk.services.stepfunctions.tasks.*;
 import software.amazon.awscdk.services.rds.Credentials;
 import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.lambda.Code;
+import software.amazon.awscdk.services.stepfunctions.*;
+import software.amazon.awscdk.services.stepfunctions.tasks.*;
+import com.myorg.stepfunctions.RiegoStateMachine;
+import software.amazon.awscdk.Duration;
+import software.amazon.awscdk.services.events.Schedule;
+
+
 
 
 
@@ -166,9 +173,22 @@ public class EtlCultivoSensoresStack extends Stack {
         // ==============================
         Function riegoCultivoLambda = Function.Builder.create(this, "RiegoCultivoLambda")
         .runtime(Runtime.JAVA_11)
-        .handler("com.myorg.lambda.RiegoCultivo::handleRequest") // 👈 Ruta completa al método
+        .handler("com.myorg.lambda.RiegoCultivo::handleRequest") 
         .code(Code.fromAsset("lambda"))
         .vpc(vpc)
+        .build();
+
+        
+        // ========================================
+        // 11. STEPFUNCTION - ASOCIAR STATE MACHINE
+        // ========================================
+        // Asociar state machine de la carpeta stepfuctions
+        RiegoStateMachine riegoFlow = new RiegoStateMachine(this, riegoCultivoLambda);
+
+        // EventBridge que dispara el Trigger programado para evitar bucles en la machine
+        Rule.Builder.create(this, "TriggerProgramado")
+        .schedule(Schedule.rate(Duration.hours(1)))
+        .targets(List.of(new SfnStateMachine(riegoFlow.getStateMachine())))
         .build();
 
     }

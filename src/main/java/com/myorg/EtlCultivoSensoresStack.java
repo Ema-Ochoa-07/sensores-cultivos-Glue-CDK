@@ -30,10 +30,8 @@ import software.amazon.awscdk.services.stepfunctions.tasks.*;
 import com.myorg.stepfunctions.RiegoStateMachine;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.events.Schedule;
-
-
-
-
+import java.util.Map;
+import java.util.HashMap;
 
 import java.util.List;
 
@@ -169,20 +167,29 @@ public class EtlCultivoSensoresStack extends Stack {
         // ==============================
         // 10. AGREGAR LA LAMBDA DE RIEGO
         // ==============================
-        Function riegoCultivoLambda = Function.Builder.create(this, "RiegoCultivoLambda")
-        .runtime(Runtime.JAVA_11)
-        .handler("com.myorg.lambda.RiegoCultivo::handleRequest") 
-        .code(Code.fromAsset("lambda"))
-        .vpc(vpc)
-        .vpcSubnets(SubnetSelection.builder()
-        .subnetType(SubnetType.PUBLIC)
-        .build())
-        .allowPublicSubnet(true)
-        .build();
+        Map<String, String> lambdaEnvVars = new HashMap<>();
+        lambdaEnvVars.put("RDS_ENDPOINT", rdsSensores.getDbInstanceEndpointAddress());
+        lambdaEnvVars.put("RDS_SECRET_NAME", rdsSensores.getSecret().getSecretName());
 
-        // Permiso para acceder a RDS
+        Function riegoCultivoLambda = Function.Builder.create(this, "RiegoCultivoLambda")
+            .runtime(Runtime.JAVA_11)
+            .handler("com.myorg.lambda.RiegoCultivo::handleRequest")
+            .code(Code.fromAsset("lambda"))
+            .vpc(vpc)
+            .vpcSubnets(SubnetSelection.builder()
+                .subnetType(SubnetType.PUBLIC)
+                .build())
+            .allowPublicSubnet(true)
+            .environment(lambdaEnvVars)
+            .build();
+
+        // Permiso para acceder a RDS y Secrets Manager
         riegoCultivoLambda.getRole().addManagedPolicy(
-        ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSDataFullAccess"));
+            ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSDataFullAccess"));
+
+        riegoCultivoLambda.getRole().addManagedPolicy(
+            ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"));
+
 
         
         // ========================================

@@ -73,9 +73,7 @@ public class EtlCultivoSensoresStack extends Stack {
             .build()))
         .instanceType(InstanceType.of(InstanceClass.BURSTABLE3, InstanceSize.SMALL)) // Corrección aquí
         .credentials(Credentials.fromGeneratedSecret("admin"))
-        .vpc(Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
-            .isDefault(true)
-            .build()))
+        .vpc(vpc)
         .vpcSubnets(SubnetSelection.builder()
             .subnetType(SubnetType.PUBLIC)
             .build())
@@ -176,7 +174,15 @@ public class EtlCultivoSensoresStack extends Stack {
         .handler("com.myorg.lambda.RiegoCultivo::handleRequest") 
         .code(Code.fromAsset("lambda"))
         .vpc(vpc)
+        .vpcSubnets(SubnetSelection.builder()
+        .subnetType(SubnetType.PUBLIC)
+        .build())
+        .allowPublicSubnet(true)
         .build();
+
+        // Permiso para acceder a RDS
+        riegoCultivoLambda.getRole().addManagedPolicy(
+        ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSDataFullAccess"));
 
         
         // ========================================

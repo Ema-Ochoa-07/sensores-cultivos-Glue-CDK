@@ -14,6 +14,7 @@ import software.amazon.awscdk.services.iam.*;
 import software.amazon.awscdk.CfnOutput;
 import software.amazon.awscdk.services.s3.deployment.BucketDeployment;
 import software.amazon.awscdk.services.s3.deployment.Source;
+import software.amazon.awscdk.services.ec2.Connections;
 import software.amazon.awscdk.services.ec2.IVpc;
 import software.amazon.awscdk.services.ec2.InstanceClass;
 import software.amazon.awscdk.services.ec2.InstanceSize;
@@ -21,6 +22,7 @@ import software.amazon.awscdk.services.ec2.InstanceType;
 import software.amazon.awscdk.services.ec2.SubnetSelection;
 import software.amazon.awscdk.services.ec2.SubnetType;
 import software.amazon.awscdk.services.ec2.Port;
+import software.amazon.awscdk.services.ec2.SecurityGroup;
 import software.amazon.awscdk.services.rds.Credentials;
 import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.Runtime;
@@ -31,9 +33,11 @@ import com.myorg.stepfunctions.RiegoStateMachine;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.events.Schedule;
 import java.util.Map;
-import java.util.HashMap;
 
-import java.util.List;
+import software.amazon.awscdk.services.ec2.*;
+import software.amazon.awscdk.services.lambda.*;
+import software.amazon.awscdk.services.secretsmanager.*;
+import java.util.*;
 
 import com.myorg.jobs.JobGlueConectRDS;
 import com.myorg.jobs.JobGlueViewS3;
@@ -169,24 +173,36 @@ public class EtlCultivoSensoresStack extends Stack {
         // ==============================
         Map<String, String> lambdaEnvVars = new HashMap<>();
         lambdaEnvVars.put("RDS_ENDPOINT", rdsSensores.getDbInstanceEndpointAddress());
-        lambdaEnvVars.put("RDS_SECRET_NAME", rdsSensores.getSecret().getSecretName());
+        lambdaEnvVars.put("DB_USER", "admin");
+        lambdaEnvVars.put("DB_PASSWORD", rdsSensores.getSecret().getSecretValue().unsafeUnwrap());
+
+        // Crear Security Group para la Lambda
+        SecurityGroup lambdaSG = SecurityGroup.Builder.create(this, "LambdaSG")
+            .vpc(vpc)
+            .allowAllOutbound(true)
+            .build();
+
+        // Versión CORRECTA para permitir acceso (sin SecurityGroupConnectOptions)
+        rdsSensores.getConnections().allowFrom(lambdaSG, Port.tcp(3306), "Permitir acceso Lambda a RDS");
 
         Function riegoCultivoLambda = Function.Builder.create(this, "RiegoCultivoLambda")
             .runtime(Runtime.JAVA_11)
             .handler("com.myorg.lambda.RiegoCultivo::handleRequest")
-            .code(Code.fromAsset("lambda"))
+            .code(Code.fromAsset("target/etl-cultivo-sensores-0.1.jar"))
             .vpc(vpc)
             .vpcSubnets(SubnetSelection.builder()
-                .subnetType(SubnetType.PUBLIC)
-                .build())
+            .subnetType(SubnetType.PUBLIC)
+            .build())
             .allowPublicSubnet(true)
+            .securityGroups(Collections.singletonList(lambdaSG))
             .environment(lambdaEnvVars)
+            .timeout(Duration.seconds(30))
+            .memorySize(512)
             .build();
 
-        // Permiso para acceder a RDS y Secrets Manager
+        // Permisos
         riegoCultivoLambda.getRole().addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSDataFullAccess"));
-
+            ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"));
         riegoCultivoLambda.getRole().addManagedPolicy(
             ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"));
 

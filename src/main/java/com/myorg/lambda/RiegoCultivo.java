@@ -2,47 +2,52 @@ package com.myorg.lambda;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.*;
+import java.util.HashMap;
 import java.util.Map;
 
 public class RiegoCultivo implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
-    private static final String DB_URL = "jdbc:mysql://" + System.getenv("RDS_ENDPOINT") + ":3306/cultivo_bd";
-    private static final String DB_USER = System.getenv("DB_USER");
-    private static final String DB_PASSWORD = System.getenv("DB_PASSWORD");
+    static {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver"); // Carga del driver JDBC para MySQL 8
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("No se pudo cargar el driver de MySQL", e);
+        }
+    }
 
     @Override
     public Map<String, Object> handleRequest(Map<String, Object> input, Context context) {
-        int humedad = 0;
+        Map<String, Object> response = new HashMap<>();
 
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             Statement stmt = conn.createStatement()) {
+        // Leer desde variables de entorno
+        String endpoint = System.getenv("RDS_ENDPOINT");
+        String user = System.getenv("DB_USER");
+        String password = System.getenv("DB_PASSWORD");
 
-            String query = "SELECT humedad FROM lecturas_sensor ORDER BY fecha DESC LIMIT 1";
-            ResultSet rs = stmt.executeQuery(query);
+        // Construir la URL JDBC
+        String dbUrl = String.format("jdbc:mysql://%s:3306/cultivo_bd?useSSL=false&allowPublicKeyRetrieval=true", endpoint);
+
+        context.getLogger().log("Intentando conectar a RDS en: " + dbUrl);
+
+        try (Connection conn = DriverManager.getConnection(dbUrl, user, password);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT humedad FROM lecturas_sensor ORDER BY fecha DESC LIMIT 1")) {
 
             if (rs.next()) {
-                humedad = rs.getInt("humedad");
+                int humedad = rs.getInt("humedad");
+                response.put("status", "success");
+                response.put("humedad", humedad);
+                response.put("debeRegar", humedad < 30);
             }
 
-        } catch (Exception e) {
-            context.getLogger().log("Error al conectar a la base de datos: " + e.getMessage());
-            return Map.of(
-                    "error", "No se pudo obtener la humedad",
-                    "detalle", e.getMessage()
-            );
+        } catch (SQLException e) {
+            context.getLogger().log("Error SQL: " + e.getMessage());
+            response.put("status", "error");
+            response.put("message", "Código SQL: " + e.getErrorCode());
+            response.put("sqlState", e.getSQLState());
         }
 
-        boolean debeRegar = humedad < 30;
-
-        return Map.of(
-                "humedad", humedad,
-                "debeRegar", debeRegar,
-                "mensaje", debeRegar ? "Activando riego" : "No se requiere riego"
-        );
+        return response;
     }
 }

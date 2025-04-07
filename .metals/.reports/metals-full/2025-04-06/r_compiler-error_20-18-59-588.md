@@ -1,3 +1,16 @@
+file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+### java.util.NoSuchElementException: next on empty iterator
+
+occurred in the presentation compiler.
+
+presentation compiler configuration:
+
+
+action parameters:
+offset: 11337
+uri: file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+text:
+```scala
 package com.myorg;
 
 import software.constructs.Construct;
@@ -245,40 +258,62 @@ public class EtlCultivoSensoresStack extends Stack {
             ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"));
 
 
-        // =========================================
-        // 13 CONFIGURACIÓN DE ATHENA PARA CONSULTAS
-        // =========================================
+               @@ // =====================================
+        // 9.1. CONFIGURACIÓN DE ATHENA PARA CONSULTAS
+        // =====================================
         Bucket athenaResultsBucket = Bucket.Builder.create(this, "AthenaResultsBucket")
-        .bucketName("athena-query-results-" + accountId)
-        .removalPolicy(RemovalPolicy.DESTROY)
-        .autoDeleteObjects(true)
-        .build();
+            .bucketName("athena-query-results-" + accountId)
+            .removalPolicy(RemovalPolicy.DESTROY)
+            .autoDeleteObjects(true)
+            .build();
 
         CfnNamedQuery namedQuery = CfnNamedQuery.Builder.create(this, "AthenaNamedQuery")
-        .database("cultivo_db") // Debe coincidir con tu Glue DB
-        .queryString("SELECT * FROM datos_sensores LIMIT 10;") // Reemplaza con tu tabla Glue real
-        .name("ConsultaPruebaSensores")
-        .description("Consulta de prueba sobre tabla sensores")
-        .workGroup("primary")
-        .build();
+            .database("cultivo_db") // Debe coincidir con tu Glue DB
+            .queryString("SELECT * FROM datos_sensores LIMIT 10;") // Reemplaza con tu tabla Glue real
+            .name("ConsultaPruebaSensores")
+            .description("Consulta de prueba sobre tabla sensores")
+            .workGroup("primary")
+            .build();
 
         // Dar permisos a la Lambda para ejecutar consultas Athena
-        ((Role) riegoCultivoLambda.getRole()).addToPolicy(PolicyStatement.Builder.create()
-        .actions(List.of(
-            "athena:StartQueryExecution",
-            "athena:GetQueryResults",
-            "athena:GetQueryExecution",
-            "glue:GetTable",
-            "glue:GetDatabase",
-            "glue:GetPartition",
-            "s3:GetObject",
-            "s3:PutObject"
-        ))
-        .resources(List.of("*"))
-        .build());
+        riegoCultivoLambda.getRole().addToPolicy(PolicyStatement.Builder.create()
+            .actions(List.of(
+                "athena:StartQueryExecution",
+                "athena:GetQueryResults",
+                "athena:GetQueryExecution",
+                "glue:GetTable",
+                "glue:GetDatabase",
+                "glue:GetPartition",
+                "s3:GetObject",
+                "s3:PutObject"
+            ))
+            .resources(List.of("*"))
+            .build());
 
         // Permiso al bucket de resultados de Athena
         athenaResultsBucket.grantReadWrite(riegoCultivoLambda);
 
     }
 }
+
+```
+
+
+
+#### Error stacktrace:
+
+```
+scala.collection.Iterator$$anon$19.next(Iterator.scala:973)
+	scala.collection.Iterator$$anon$19.next(Iterator.scala:971)
+	scala.collection.mutable.MutationTracker$CheckedIterator.next(MutationTracker.scala:76)
+	scala.collection.IterableOps.head(Iterable.scala:222)
+	scala.collection.IterableOps.head$(Iterable.scala:222)
+	scala.collection.AbstractIterable.head(Iterable.scala:935)
+	dotty.tools.dotc.interactive.InteractiveDriver.run(InteractiveDriver.scala:164)
+	dotty.tools.pc.CachingDriver.run(CachingDriver.scala:45)
+	dotty.tools.pc.HoverProvider$.hover(HoverProvider.scala:40)
+	dotty.tools.pc.ScalaPresentationCompiler.hover$$anonfun$1(ScalaPresentationCompiler.scala:389)
+```
+#### Short summary: 
+
+java.util.NoSuchElementException: next on empty iterator

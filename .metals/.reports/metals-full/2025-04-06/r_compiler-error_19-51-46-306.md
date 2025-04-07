@@ -1,3 +1,16 @@
+file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+### java.util.NoSuchElementException: next on empty iterator
+
+occurred in the presentation compiler.
+
+presentation compiler configuration:
+
+
+action parameters:
+offset: 4220
+uri: file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+text:
+```scala
 package com.myorg;
 
 import software.constructs.Construct;
@@ -34,7 +47,6 @@ import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.events.Schedule;
 import java.util.Map;
 
-import software.amazon.awscdk.services.athena.CfnNamedQuery;
 import software.amazon.awscdk.services.ec2.*;
 import software.amazon.awscdk.services.lambda.*;
 import software.amazon.awscdk.services.secretsmanager.*;
@@ -94,6 +106,10 @@ public class EtlCultivoSensoresStack extends Stack {
         rdsSensores.getConnections().allowFromAnyIpv4(Port.tcp(3306), 
             "Allow inbound MySQL access from any IP (testing only)");
 
+        // =============================================@@===
+        // 2.2 PERMISOS DE ADMIN PARA ACCEDER A LA LAMBDA
+        // ================================================
+        // Omitimos addPropertyOverride para evitar ciclo
 
         // ===================================================================
         // 3. GLUE DATABASE PARA METADATOS
@@ -214,71 +230,27 @@ public class EtlCultivoSensoresStack extends Stack {
             .schedule(Schedule.rate(Duration.hours(1)))
             .targets(List.of(new SfnStateMachine(riegoFlow.getStateMachine())))
             .build();
-
-        // ==============================
-        // 12. LAMBDA PARA OTORGAR PRIVILEGIOS AL USUARIO ADMIN
-        // ==============================
-        Map<String, String> grantEnvVars = new HashMap<>();
-        grantEnvVars.put("JDBC_URL", "jdbc:mysql://" + rdsSensores.getDbInstanceEndpointAddress() + ":3306/cultivo_bd?useSSL=false&allowPublicKeyRetrieval=true");
-        grantEnvVars.put("DB_USER", "admin");
-        grantEnvVars.put("DB_PASSWORD", rdsSensores.getSecret().getSecretValue().unsafeUnwrap());
-
-        Function grantPrivilegesLambda = Function.Builder.create(this, "GrantPrivilegesLambda")
-            .runtime(Runtime.JAVA_11)
-            .handler("com.myorg.lambda.GrantAdminPrivilegesHandler::handleRequest")
-            .code(Code.fromAsset("target/etl-cultivo-sensores-0.1.jar"))
-            .vpc(vpc)
-            .vpcSubnets(SubnetSelection.builder()
-                .subnetType(SubnetType.PUBLIC)
-                .build())
-            .allowPublicSubnet(true)
-            .securityGroups(Collections.singletonList(lambdaSG)) // Puedes reutilizar lambdaSG
-            .environment(grantEnvVars)
-            .timeout(Duration.seconds(30))
-            .memorySize(512)
-            .build();
-
-        // Permisos necesarios
-        grantPrivilegesLambda.getRole().addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"));
-        grantPrivilegesLambda.getRole().addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"));
-
-
-        // =========================================
-        // 13 CONFIGURACIÓN DE ATHENA PARA CONSULTAS
-        // =========================================
-        Bucket athenaResultsBucket = Bucket.Builder.create(this, "AthenaResultsBucket")
-        .bucketName("athena-query-results-" + accountId)
-        .removalPolicy(RemovalPolicy.DESTROY)
-        .autoDeleteObjects(true)
-        .build();
-
-        CfnNamedQuery namedQuery = CfnNamedQuery.Builder.create(this, "AthenaNamedQuery")
-        .database("cultivo_db") // Debe coincidir con tu Glue DB
-        .queryString("SELECT * FROM datos_sensores LIMIT 10;") // Reemplaza con tu tabla Glue real
-        .name("ConsultaPruebaSensores")
-        .description("Consulta de prueba sobre tabla sensores")
-        .workGroup("primary")
-        .build();
-
-        // Dar permisos a la Lambda para ejecutar consultas Athena
-        ((Role) riegoCultivoLambda.getRole()).addToPolicy(PolicyStatement.Builder.create()
-        .actions(List.of(
-            "athena:StartQueryExecution",
-            "athena:GetQueryResults",
-            "athena:GetQueryExecution",
-            "glue:GetTable",
-            "glue:GetDatabase",
-            "glue:GetPartition",
-            "s3:GetObject",
-            "s3:PutObject"
-        ))
-        .resources(List.of("*"))
-        .build());
-
-        // Permiso al bucket de resultados de Athena
-        athenaResultsBucket.grantReadWrite(riegoCultivoLambda);
-
     }
 }
+
+```
+
+
+
+#### Error stacktrace:
+
+```
+scala.collection.Iterator$$anon$19.next(Iterator.scala:973)
+	scala.collection.Iterator$$anon$19.next(Iterator.scala:971)
+	scala.collection.mutable.MutationTracker$CheckedIterator.next(MutationTracker.scala:76)
+	scala.collection.IterableOps.head(Iterable.scala:222)
+	scala.collection.IterableOps.head$(Iterable.scala:222)
+	scala.collection.AbstractIterable.head(Iterable.scala:935)
+	dotty.tools.dotc.interactive.InteractiveDriver.run(InteractiveDriver.scala:164)
+	dotty.tools.pc.CachingDriver.run(CachingDriver.scala:45)
+	dotty.tools.pc.HoverProvider$.hover(HoverProvider.scala:40)
+	dotty.tools.pc.ScalaPresentationCompiler.hover$$anonfun$1(ScalaPresentationCompiler.scala:389)
+```
+#### Short summary: 
+
+java.util.NoSuchElementException: next on empty iterator

@@ -3,7 +3,10 @@ package com.myorg;
 import software.constructs.Construct;
 import software.amazon.awscdk.Stack;
 import software.amazon.awscdk.StackProps;
+import software.amazon.awscdk.services.s3.BlockPublicAccess;
 import software.amazon.awscdk.services.s3.Bucket;
+import software.amazon.awscdk.services.s3.BucketEncryption;
+import software.amazon.awscdk.services.s3.LifecycleRule;
 import software.amazon.awscdk.services.rds.*;
 import software.amazon.awscdk.services.ec2.Vpc;
 import software.amazon.awscdk.services.ec2.VpcLookupOptions;
@@ -33,11 +36,12 @@ import com.myorg.stepfunctions.RiegoStateMachine;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.events.Schedule;
 import java.util.Map;
-
 import software.amazon.awscdk.services.athena.CfnNamedQuery;
 import software.amazon.awscdk.services.ec2.*;
 import software.amazon.awscdk.services.lambda.*;
 import software.amazon.awscdk.services.secretsmanager.*;
+import com.myorg.utils.GlueScriptsUploader;
+
 import java.util.*;
 
 import com.myorg.jobs.JobGlueConectRDS;
@@ -45,15 +49,20 @@ import com.myorg.jobs.JobGlueViewS3;
 
 import software.amazon.awscdk.RemovalPolicy;
 
-
-// ... tus imports se mantienen exactamente igual ...
-
 public class EtlCultivoSensoresStack extends Stack {
 
     public EtlCultivoSensoresStack(final Construct scope, final String id, final StackProps props) {
         super(scope, id, props);
 
         String accountId = this.getAccount();
+        String region = this.getRegion();
+
+        // =============================================
+        // CONSTANTES PARA NOMBRES DE BUCKETS
+        // =============================================
+        final String PROCESSED_DATA_BUCKET = "datos-cultivo-procesados-" + accountId + "-" + region;
+        final String GLUE_SCRIPTS_BUCKET = "mis-glue-scripts-" + accountId + "-" + region;
+        final String ATHENA_RESULTS_BUCKET = "athena-query-results-" + accountId + "-" + region;
 
         // Definir la VPC que se va a utlizar en las diferemtes funciones
         IVpc vpc = Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
@@ -61,14 +70,24 @@ public class EtlCultivoSensoresStack extends Stack {
             .build());
 
         // =============================================
-        // 1. BUCKET S3 PARA DATOS PROCESADOS
+        // 1. BUCKET S3 PARA DATOS PROCESADOS - CONFIGURACIÓN MEJORADA
         // =============================================
         Bucket bucketSalida = Bucket.Builder.create(this, "BucketSalidaCultivo")
-            .bucketName("datos-cultivo-procesados-" + accountId)
+            .bucketName(PROCESSED_DATA_BUCKET)
             .versioned(false)
             .autoDeleteObjects(true)
             .removalPolicy(RemovalPolicy.DESTROY)
+            .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+            .encryption(BucketEncryption.S3_MANAGED)
+            .enforceSsl(true)
+            .lifecycleRules(List.of(
+                LifecycleRule.builder()
+                    .expiration(Duration.days(365)) // Borrar objetos después de 1 año
+                    .build()))
             .build();
+
+        //SUBIR LOS SCRIPTS AL BUCKET
+        new GlueScriptsUploader(this, "UploadGlueScripts", bucketSalida);
 
         // =============================================
         // 2. RDS MYSQL (CONFIGURACIÓN COMPLETA)
@@ -84,7 +103,7 @@ public class EtlCultivoSensoresStack extends Stack {
                 .subnetType(SubnetType.PUBLIC)
                 .build())
             .port(3306)
-            .databaseName("cultivo_bd")
+            .databaseName("cultivo_db")
             .storageEncrypted(true)
             .build();
 
@@ -93,7 +112,6 @@ public class EtlCultivoSensoresStack extends Stack {
         // =============================================
         rdsSensores.getConnections().allowFromAnyIpv4(Port.tcp(3306), 
             "Allow inbound MySQL access from any IP (testing only)");
-
 
         // ===================================================================
         // 3. GLUE DATABASE PARA METADATOS
@@ -134,15 +152,7 @@ public class EtlCultivoSensoresStack extends Stack {
             .build();
 
         // ==================================
-        // 6. BUCKET PARA SCRIPTS DE GLUE (CREACIÓN AUTOMÁTICA)
-        // ==================================
-        Bucket scriptsBucket = Bucket.Builder.create(this, "GlueScriptsBucket")
-            .bucketName("aws-glue-scripts-" + accountId)
-            .removalPolicy(RemovalPolicy.DESTROY)
-            .build();
-
-        // ==================================
-        // 7. ROL PARA DESPLIEGUE DE SCRIPTS
+        // 6. ROL PARA DESPLIEGUE DE SCRIPTS
         // ==================================
         Role deploymentRole = Role.Builder.create(this, "DeploymentRole")
             .assumedBy(new CompositePrincipal(
@@ -155,23 +165,29 @@ public class EtlCultivoSensoresStack extends Stack {
             .build();
 
         // ==================================
-        // 8. SUBIR SCRIPTS AL BUCKET (DESDE CARPETA LOCAL './scripts')
+        // 7. BUCKET PARA SCRIPTS DE GLUE - CONFIGURACIÓN MEJORADA
         // ==================================
-        BucketDeployment.Builder.create(this, "DeployGlueScripts")
-            .sources(List.of(Source.asset("src/main/java/com/myorg/scripts")))
-            .destinationBucket(scriptsBucket)
-            .destinationKeyPrefix("scripts/")
-            .role(deploymentRole)
+        Bucket scriptsBucket = Bucket.Builder.create(this, "GlueScriptsBucket")
+            .bucketName(GLUE_SCRIPTS_BUCKET)
+            .versioned(false)
+            .autoDeleteObjects(true)
+            .removalPolicy(RemovalPolicy.DESTROY)
+            .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+            .encryption(BucketEncryption.S3_MANAGED)
+            .enforceSsl(true)
             .build();
 
+        // Conceder permisos explícitos al rol de Glue
+        scriptsBucket.grantReadWrite(glueRole);
+
         // =====================================
-        // 9. JOBS DE GLUE (USANDO TUS CLASES EXISTENTES)
+        // 8. JOBS DE GLUE (USANDO TUS CLASES EXISTENTES)
         // =====================================
         new JobGlueConectRDS(this, "GlueJobExtraccion", glueRole, rdsSensores, bucketSalida, accountId);
         new JobGlueViewS3(this, "GlueJobTransformacion", glueRole, bucketSalida, accountId);
 
         // ==============================
-        // 10. AGREGAR LA LAMBDA DE RIEGO
+        // 9. AGREGAR LA LAMBDA DE RIEGO
         // ==============================
         Map<String, String> lambdaEnvVars = new HashMap<>();
         lambdaEnvVars.put("RDS_ENDPOINT", rdsSensores.getDbInstanceEndpointAddress());
@@ -184,6 +200,28 @@ public class EtlCultivoSensoresStack extends Stack {
             .build();
 
         rdsSensores.getConnections().allowFrom(lambdaSG, Port.tcp(3306), "Permitir acceso Lambda a RDS");
+
+        // =============================================
+        // Conexión Glue a RDS para usar desde Workbench (AJUSTADA A SUBNET PÚBLICA)
+        // =============================================
+        CfnConnection glueConnection = CfnConnection.Builder.create(this, "RdsGlueConnection")
+            .catalogId(accountId)
+            .connectionInput(CfnConnection.ConnectionInputProperty.builder()
+                .connectionType("JDBC")
+                .connectionProperties(Map.of(
+                    "JDBC_CONNECTION_URL", "jdbc:mysql://" + rdsSensores.getDbInstanceEndpointAddress() + ":3306/cultivo_db",
+                    "USERNAME", "admin",
+                    "PASSWORD", rdsSensores.getSecret().getSecretValue().unsafeUnwrap()
+                ))
+                .physicalConnectionRequirements(CfnConnection.PhysicalConnectionRequirementsProperty.builder()
+                    .subnetId(vpc.getPublicSubnets().get(0).getSubnetId())
+                    .securityGroupIdList(List.of(lambdaSG.getSecurityGroupId()))
+                    .availabilityZone(vpc.getAvailabilityZones().get(0))
+                    .build())
+                .name("cultivo-rds-connection")
+                .description("Conexión JDBC a RDS para datos de cultivo")
+                .build())
+            .build();
 
         Function riegoCultivoLambda = Function.Builder.create(this, "RiegoCultivoLambda")
             .runtime(Runtime.JAVA_11)
@@ -206,7 +244,7 @@ public class EtlCultivoSensoresStack extends Stack {
             ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"));
 
         // ========================================
-        // 11. STEPFUNCTION - ASOCIAR STATE MACHINE
+        // 10. STEPFUNCTION - ASOCIAR STATE MACHINE
         // ========================================
         RiegoStateMachine riegoFlow = new RiegoStateMachine(this, riegoCultivoLambda);
 
@@ -215,70 +253,41 @@ public class EtlCultivoSensoresStack extends Stack {
             .targets(List.of(new SfnStateMachine(riegoFlow.getStateMachine())))
             .build();
 
-        // ==============================
-        // 12. LAMBDA PARA OTORGAR PRIVILEGIOS AL USUARIO ADMIN
-        // ==============================
-        Map<String, String> grantEnvVars = new HashMap<>();
-        grantEnvVars.put("JDBC_URL", "jdbc:mysql://" + rdsSensores.getDbInstanceEndpointAddress() + ":3306/cultivo_bd?useSSL=false&allowPublicKeyRetrieval=true");
-        grantEnvVars.put("DB_USER", "admin");
-        grantEnvVars.put("DB_PASSWORD", rdsSensores.getSecret().getSecretValue().unsafeUnwrap());
-
-        Function grantPrivilegesLambda = Function.Builder.create(this, "GrantPrivilegesLambda")
-            .runtime(Runtime.JAVA_11)
-            .handler("com.myorg.lambda.GrantAdminPrivilegesHandler::handleRequest")
-            .code(Code.fromAsset("target/etl-cultivo-sensores-0.1.jar"))
-            .vpc(vpc)
-            .vpcSubnets(SubnetSelection.builder()
-                .subnetType(SubnetType.PUBLIC)
-                .build())
-            .allowPublicSubnet(true)
-            .securityGroups(Collections.singletonList(lambdaSG)) // Puedes reutilizar lambdaSG
-            .environment(grantEnvVars)
-            .timeout(Duration.seconds(30))
-            .memorySize(512)
-            .build();
-
-        // Permisos necesarios
-        grantPrivilegesLambda.getRole().addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"));
-        grantPrivilegesLambda.getRole().addManagedPolicy(
-            ManagedPolicy.fromAwsManagedPolicyName("SecretsManagerReadWrite"));
-
-
         // =========================================
-        // 13 CONFIGURACIÓN DE ATHENA PARA CONSULTAS
+        // 11. CONFIGURACIÓN DE ATHENA PARA CONSULTAS - MEJORADA
         // =========================================
         Bucket athenaResultsBucket = Bucket.Builder.create(this, "AthenaResultsBucket")
-        .bucketName("athena-query-results-" + accountId)
-        .removalPolicy(RemovalPolicy.DESTROY)
-        .autoDeleteObjects(true)
-        .build();
+            .bucketName(ATHENA_RESULTS_BUCKET)
+            .removalPolicy(RemovalPolicy.DESTROY)
+            .autoDeleteObjects(true)
+            .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+            .encryption(BucketEncryption.S3_MANAGED)
+            .build();
 
         CfnNamedQuery namedQuery = CfnNamedQuery.Builder.create(this, "AthenaNamedQuery")
-        .database("cultivo_db") // Debe coincidir con tu Glue DB
-        .queryString("SELECT * FROM datos_sensores LIMIT 10;") // Reemplaza con tu tabla Glue real
-        .name("ConsultaPruebaSensores")
-        .description("Consulta de prueba sobre tabla sensores")
-        .workGroup("primary")
-        .build();
+            .database("cultivo_db")
+            .queryString("SELECT * FROM datos_sensores LIMIT 10;")
+            .name("ConsultaPruebaSensores")
+            .description("Consulta de prueba sobre tabla sensores")
+            .workGroup("primary")
+            .build();
 
         // Dar permisos a la Lambda para ejecutar consultas Athena
         ((Role) riegoCultivoLambda.getRole()).addToPolicy(PolicyStatement.Builder.create()
-        .actions(List.of(
-            "athena:StartQueryExecution",
-            "athena:GetQueryResults",
-            "athena:GetQueryExecution",
-            "glue:GetTable",
-            "glue:GetDatabase",
-            "glue:GetPartition",
-            "s3:GetObject",
-            "s3:PutObject"
-        ))
-        .resources(List.of("*"))
-        .build());
+            .actions(List.of(
+                "athena:StartQueryExecution",
+                "athena:GetQueryResults",
+                "athena:GetQueryExecution",
+                "glue:GetTable",
+                "glue:GetDatabase",
+                "glue:GetPartition",
+                "s3:GetObject",
+                "s3:PutObject"
+            ))
+            .resources(List.of("*"))
+            .build());
 
         // Permiso al bucket de resultados de Athena
         athenaResultsBucket.grantReadWrite(riegoCultivoLambda);
-
     }
 }

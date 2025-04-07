@@ -90,6 +90,7 @@
   </dependencies>
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
+    <aws.sdk.version>2.25.26</aws.sdk.version>
     <maven.compiler.target>11</maven.compiler.target>
     <cdk.version>2.100.0</cdk.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

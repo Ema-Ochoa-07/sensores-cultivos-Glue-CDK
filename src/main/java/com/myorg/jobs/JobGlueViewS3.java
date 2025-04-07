@@ -16,7 +16,7 @@ public class JobGlueViewS3 extends Construct {
             .role(glueRole.getRoleArn())
             .command(CfnJob.JobCommandProperty.builder()
                 .name("glueetl")
-                .scriptLocation("s3://aws-glue-scripts-" + accountId + "/scripts/transform-cultivo.scala")
+                .scriptLocation("s3://" + bucketSalida.getBucketName() + "/scripts/transform-cultivo.scala")
                 .build())
             .defaultArguments(Map.of(
                 "--S3_INPUT_PATH", "s3://" + bucketSalida.getBucketName() + "/raw-data/",

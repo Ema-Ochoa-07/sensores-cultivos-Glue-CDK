@@ -32,7 +32,7 @@ public class RiegoCultivo implements RequestHandler<Map<String, Object>, Map<Str
 
         try (Connection conn = DriverManager.getConnection(dbUrl, user, password);
              Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT humedad FROM lecturas_sensor ORDER BY fecha DESC LIMIT 1")) {
+             ResultSet rs = stmt.executeQuery("SELECT humedad FROM datos_sensores ORDER BY fecha DESC LIMIT 1")) {
 
             if (rs.next()) {
                 int humedad = rs.getInt("humedad");

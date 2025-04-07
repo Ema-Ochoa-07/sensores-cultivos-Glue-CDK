@@ -10,7 +10,7 @@ object GlueApp {
     val spark: SparkSession = SparkSession.builder().getOrCreate()
     val glueContext: GlueContext = new GlueContext(spark.sparkContext)
 
-    val jdbcUrl = s"jdbc:mysql://${args("host")}:3306/cultivo_bd"
+    val jdbcUrl = s"jdbc:mysql://${args("host")}:3306/cultivo_db"
     val connectionProperties = new java.util.Properties()
     connectionProperties.put("user", args("user"))
     connectionProperties.put("password", args("password"))

@@ -1,0 +1,850 @@
+Resources:
+  GlueRoleCultivo21C09542:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSGlueServiceRole
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/AmazonRDSFullAccess
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/AmazonS3FullAccess
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/GlueRoleCultivo/Resource
+  GlueRoleCultivoDefaultPolicy72752175:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - secretsmanager:DescribeSecret
+              - secretsmanager:GetSecretValue
+            Effect: Allow
+            Resource:
+              Ref: RdsSensoresCultivoSecretAttachment3477296A
+          - Action:
+              - s3:Abort*
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:GetObject*
+              - s3:List*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - BucketSalidaCultivo88B32177
+                  - Arn
+              - Fn::GetAtt:
+                  - GlueScriptsBucketCD60B14C
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - BucketSalidaCultivo88B32177
+                        - Arn
+                    - /*
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - GlueScriptsBucketCD60B14C
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+      PolicyName: GlueRoleCultivoDefaultPolicy72752175
+      Roles:
+        - Ref: GlueRoleCultivo21C09542
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/GlueRoleCultivo/DefaultPolicy/Resource
+  BucketSalidaCultivo88B32177:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: datos-cultivo-procesados
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 365
+            Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: aws-cdk:auto-delete-objects
+          Value: "true"
+        - Key: aws-cdk:cr-owned:scripts:7c2d853b
+          Value: "true"
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/BucketSalidaCultivo/Resource
+  BucketSalidaCultivoPolicy16D9A7FC:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: BucketSalidaCultivo88B32177
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Resource:
+              - Fn::GetAtt:
+                  - BucketSalidaCultivo88B32177
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - BucketSalidaCultivo88B32177
+                        - Arn
+                    - /*
+          - Action:
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:PutBucketPolicy
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+                  - Arn
+            Resource:
+              - Fn::GetAtt:
+                  - BucketSalidaCultivo88B32177
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - BucketSalidaCultivo88B32177
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/BucketSalidaCultivo/Policy/Resource
+  BucketSalidaCultivoAutoDeleteObjectsCustomResource688478F7:
+    Type: Custom::S3AutoDeleteObjects
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F
+          - Arn
+      BucketName:
+        Ref: BucketSalidaCultivo88B32177
+    DependsOn:
+      - BucketSalidaCultivoPolicy16D9A7FC
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/BucketSalidaCultivo/AutoDeleteObjectsCustomResource/Default
+  CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role
+  CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-164797387787-us-east-1
+        S3Key: b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6.zip
+      Timeout: 900
+      MemorySize: 128
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+          - Arn
+      Runtime: nodejs18.x
+      Description:
+        Fn::Join:
+          - ""
+          - - "Lambda function for auto-deleting objects in "
+            - Ref: BucketSalidaCultivo88B32177
+            - " S3 bucket."
+    DependsOn:
+      - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler
+      aws:asset:path: asset.b7f33614a69548d6bafe224d751a7ef238cde19097415e553fe8b63a4c8fd8a6
+      aws:asset:property: Code
+  UploadGlueScriptsGlueScriptsDeploymentAwsCliLayerD617539F:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      Content:
+        S3Bucket: cdk-hnb659fds-assets-164797387787-us-east-1
+        S3Key: 566e8d9f8eaa36ffa4f62af3b2cb2abfe3a5e01497f47d6232038964297e694d.zip
+      Description: /opt/awscli/aws
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/UploadGlueScripts/GlueScriptsDeployment/AwsCliLayer/Resource
+      aws:asset:path: asset.566e8d9f8eaa36ffa4f62af3b2cb2abfe3a5e01497f47d6232038964297e694d.zip
+      aws:asset:is-bundled: false
+      aws:asset:property: Content
+  UploadGlueScriptsGlueScriptsDeploymentCustomResourceECF3E705:
+    Type: Custom::CDKBucketDeployment
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536
+          - Arn
+      SourceBucketNames:
+        - cdk-hnb659fds-assets-164797387787-us-east-1
+      SourceObjectKeys:
+        - d660645bdac15a179d311a3249721b5d9e855873cf0b997f7b45a93de83fe5a6.zip
+      DestinationBucketName:
+        Ref: BucketSalidaCultivo88B32177
+      DestinationBucketKeyPrefix: scripts
+      RetainOnDelete: false
+      Prune: true
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/UploadGlueScripts/GlueScriptsDeployment/CustomResource/Default
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/Resource
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetBucket*
+              - s3:GetObject*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - arn:aws:s3:::cdk-hnb659fds-assets-164797387787-us-east-1
+              - arn:aws:s3:::cdk-hnb659fds-assets-164797387787-us-east-1/*
+          - Action:
+              - s3:Abort*
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:GetObject*
+              - s3:List*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - BucketSalidaCultivo88B32177
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - BucketSalidaCultivo88B32177
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+      PolicyName: CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF
+      Roles:
+        - Ref: CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy/Resource
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-164797387787-us-east-1
+        S3Key: 9eb41a5505d37607ac419321497a4f8c21cf0ee1f9b4a6b29aa04301aea5c7fd.zip
+      Environment:
+        Variables:
+          AWS_CA_BUNDLE: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+      Handler: index.handler
+      Layers:
+        - Ref: UploadGlueScriptsGlueScriptsDeploymentAwsCliLayerD617539F
+      Role:
+        Fn::GetAtt:
+          - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+          - Arn
+      Runtime: python3.9
+      Timeout: 900
+    DependsOn:
+      - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF
+      - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource
+      aws:asset:path: asset.9eb41a5505d37607ac419321497a4f8c21cf0ee1f9b4a6b29aa04301aea5c7fd
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  RdsSensoresCultivoSubnetGroup0C0DECC5:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RdsSensoresCultivo database
+      SubnetIds:
+        - subnet-06fa11cefc735b9f5
+        - subnet-7bb31227
+        - subnet-6bd2730c
+        - subnet-e277d4cc
+        - subnet-58007412
+        - subnet-26a25518
+        - subnet-7e92f271
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RdsSensoresCultivo/SubnetGroup/Default
+  RdsSensoresCultivoSecurityGroup937A41AF:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RdsSensoresCultivo database
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: "-1"
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow inbound MySQL access from any IP (testing only)
+          FromPort: 3306
+          IpProtocol: tcp
+          ToPort: 3306
+      VpcId: vpc-32a04b48
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RdsSensoresCultivo/SecurityGroup/Resource
+  RdsSensoresCultivoSecurityGroupfromEtlCultivoSensoresStackLambdaSG55DBAAF03306FEC9FC4D:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Permitir acceso Lambda a RDS
+      FromPort: 3306
+      GroupId:
+        Fn::GetAtt:
+          - RdsSensoresCultivoSecurityGroup937A41AF
+          - GroupId
+      IpProtocol: tcp
+      SourceSecurityGroupId:
+        Fn::GetAtt:
+          - LambdaSG9DBFCFB7
+          - GroupId
+      ToPort: 3306
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RdsSensoresCultivo/SecurityGroup/from EtlCultivoSensoresStackLambdaSG55DBAAF0:3306
+  EtlCultivoSensoresStackRdsSensoresCultivoSecret15EACE253fdaad7efa858a3daf9490cf0a702aeb:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description:
+        Fn::Join:
+          - ""
+          - - "Generated by the CDK for stack: "
+            - Ref: AWS::StackName
+      GenerateSecretString:
+        ExcludeCharacters: " %+~`#$&*()|[]{}:;<>?!'/@\"\\"
+        GenerateStringKey: password
+        PasswordLength: 30
+        SecretStringTemplate: '{"username":"admin"}'
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RdsSensoresCultivo/Secret/Resource
+  RdsSensoresCultivoSecretAttachment3477296A:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId:
+        Ref: EtlCultivoSensoresStackRdsSensoresCultivoSecret15EACE253fdaad7efa858a3daf9490cf0a702aeb
+      TargetId:
+        Ref: RdsSensoresCultivo09B994EB
+      TargetType: AWS::RDS::DBInstance
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RdsSensoresCultivo/Secret/Attachment/Resource
+  RdsSensoresCultivo09B994EB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: "100"
+      CopyTagsToSnapshot: true
+      DBInstanceClass: db.t3.small
+      DBName: cultivo_db
+      DBSubnetGroupName:
+        Ref: RdsSensoresCultivoSubnetGroup0C0DECC5
+      Engine: mysql
+      EngineVersion: "8.0"
+      MasterUserPassword:
+        Fn::Join:
+          - ""
+          - - "{{resolve:secretsmanager:"
+            - Ref: EtlCultivoSensoresStackRdsSensoresCultivoSecret15EACE253fdaad7efa858a3daf9490cf0a702aeb
+            - :SecretString:password::}}
+      MasterUsername: admin
+      Port: "3306"
+      PubliclyAccessible: true
+      StorageEncrypted: true
+      StorageType: gp2
+      VPCSecurityGroups:
+        - Fn::GetAtt:
+            - RdsSensoresCultivoSecurityGroup937A41AF
+            - GroupId
+    UpdateReplacePolicy: Snapshot
+    DeletionPolicy: Snapshot
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RdsSensoresCultivo/Resource
+  CultivoGlueDB:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: "164797387787"
+      DatabaseInput:
+        Name: cultivo_db
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/CultivoGlueDB
+  DeploymentRoleC7BBCF2C:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudformation.amazonaws.com
+                - lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/AmazonS3FullAccess
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/DeploymentRole/Resource
+  GlueScriptsBucketCD60B14C:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: mis-glue-scripts
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: aws-cdk:auto-delete-objects
+          Value: "true"
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/GlueScriptsBucket/Resource
+  GlueScriptsBucketPolicyEBE0FD6F:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: GlueScriptsBucketCD60B14C
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Resource:
+              - Fn::GetAtt:
+                  - GlueScriptsBucketCD60B14C
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - GlueScriptsBucketCD60B14C
+                        - Arn
+                    - /*
+          - Action:
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:PutBucketPolicy
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+                  - Arn
+            Resource:
+              - Fn::GetAtt:
+                  - GlueScriptsBucketCD60B14C
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - GlueScriptsBucketCD60B14C
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/GlueScriptsBucket/Policy/Resource
+  GlueScriptsBucketAutoDeleteObjectsCustomResource5EF6A9DF:
+    Type: Custom::S3AutoDeleteObjects
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F
+          - Arn
+      BucketName:
+        Ref: GlueScriptsBucketCD60B14C
+    DependsOn:
+      - GlueScriptsBucketPolicyEBE0FD6F
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/GlueScriptsBucket/AutoDeleteObjectsCustomResource/Default
+  GlueJobExtraccionJobGlueConectRDS7894CFAA:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: glueetl
+        ScriptLocation: s3://datos-cultivo-procesados-164797387787-us-east-1/scripts/extract-cultivo-rds-to-s3.scala
+      DefaultArguments:
+        --SECRET_NAME:
+          Fn::Join:
+            - "-"
+            - - Fn::Select:
+                  - 0
+                  - Fn::Split:
+                      - "-"
+                      - Fn::Select:
+                          - 6
+                          - Fn::Split:
+                              - ":"
+                              - Ref: EtlCultivoSensoresStackRdsSensoresCultivoSecret15EACE253fdaad7efa858a3daf9490cf0a702aeb
+              - Fn::Select:
+                  - 1
+                  - Fn::Split:
+                      - "-"
+                      - Fn::Select:
+                          - 6
+                          - Fn::Split:
+                              - ":"
+                              - Ref: EtlCultivoSensoresStackRdsSensoresCultivoSecret15EACE253fdaad7efa858a3daf9490cf0a702aeb
+        --RDS_ENDPOINT:
+          Fn::GetAtt:
+            - RdsSensoresCultivo09B994EB
+            - Endpoint.Address
+        --S3_OUTPUT_PATH:
+          Fn::Join:
+            - ""
+            - - s3://
+              - Ref: BucketSalidaCultivo88B32177
+              - /raw-data/
+        --RDS_DB_NAME: cultivo_db
+      GlueVersion: "4.0"
+      Name: extraccion-rds-cultivo
+      Role:
+        Fn::GetAtt:
+          - GlueRoleCultivo21C09542
+          - Arn
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/GlueJobExtraccion/JobGlueConectRDS
+  GlueJobTransformacionJobGlueViewS331A6D66A:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: glueetl
+        ScriptLocation: s3://datos-cultivo-procesados-164797387787-us-east-1/scripts/transform-cultivo.scala
+      DefaultArguments:
+        --S3_OUTPUT_PATH:
+          Fn::Join:
+            - ""
+            - - s3://
+              - Ref: BucketSalidaCultivo88B32177
+              - /processed-data/
+        --S3_INPUT_PATH:
+          Fn::Join:
+            - ""
+            - - s3://
+              - Ref: BucketSalidaCultivo88B32177
+              - /raw-data/
+      GlueVersion: "4.0"
+      Name: transformacion-datos-cultivo
+      Role:
+        Fn::GetAtt:
+          - GlueRoleCultivo21C09542
+          - Arn
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/GlueJobTransformacion/JobGlueViewS3
+  LambdaSG9DBFCFB7:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EtlCultivoSensoresStack/LambdaSG
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic by default
+          IpProtocol: "-1"
+      VpcId: vpc-32a04b48
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/LambdaSG/Resource
+  RdsGlueConnection:
+    Type: AWS::Glue::Connection
+    Properties:
+      CatalogId: "164797387787"
+      ConnectionInput:
+        ConnectionProperties:
+          JDBC_CONNECTION_URL:
+            Fn::Join:
+              - ""
+              - - jdbc:mysql://
+                - Fn::GetAtt:
+                    - RdsSensoresCultivo09B994EB
+                    - Endpoint.Address
+                - :3306/cultivo_db
+          USERNAME: admin
+          PASSWORD:
+            Fn::Join:
+              - ""
+              - - "{{resolve:secretsmanager:"
+                - Ref: RdsSensoresCultivoSecretAttachment3477296A
+                - :SecretString:::}}
+        ConnectionType: JDBC
+        Description: Conexión JDBC a RDS para datos de cultivo
+        Name: cultivo-rds-connection
+        PhysicalConnectionRequirements:
+          AvailabilityZone: us-east-1a
+          SecurityGroupIdList:
+            - Fn::GetAtt:
+                - LambdaSG9DBFCFB7
+                - GroupId
+          SubnetId: subnet-06fa11cefc735b9f5
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RdsGlueConnection
+  RiegoCultivoLambdaServiceRole13FA6034:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/AmazonRDSFullAccess
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/SecretsManagerReadWrite
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RiegoCultivoLambda/ServiceRole/Resource
+  RiegoCultivoLambda29178F75:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-164797387787-us-east-1
+        S3Key: 2a3255d12b3ab6248774aad45cc340ba63dd3cb5d8d8abe040a912b66c71a031.jar
+      Environment:
+        Variables:
+          DB_USER: admin
+          RDS_ENDPOINT:
+            Fn::GetAtt:
+              - RdsSensoresCultivo09B994EB
+              - Endpoint.Address
+          DB_PASSWORD:
+            Fn::Join:
+              - ""
+              - - "{{resolve:secretsmanager:"
+                - Ref: RdsSensoresCultivoSecretAttachment3477296A
+                - :SecretString:::}}
+      Handler: com.myorg.lambda.RiegoCultivo::handleRequest
+      MemorySize: 512
+      Role:
+        Fn::GetAtt:
+          - RiegoCultivoLambdaServiceRole13FA6034
+          - Arn
+      Runtime: java11
+      Timeout: 30
+      VpcConfig:
+        SecurityGroupIds:
+          - Fn::GetAtt:
+              - LambdaSG9DBFCFB7
+              - GroupId
+        SubnetIds:
+          - subnet-06fa11cefc735b9f5
+          - subnet-7bb31227
+          - subnet-6bd2730c
+          - subnet-e277d4cc
+          - subnet-58007412
+          - subnet-26a25518
+          - subnet-7e92f271
+    DependsOn:
+      - RiegoCultivoLambdaServiceRole13FA6034
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RiegoCultivoLambda/Resource
+      aws:asset:path: asset.2a3255d12b3ab6248774aad45cc340ba63dd3cb5d8d8abe040a912b66c71a031.jar
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  RiegoStateMachineRoleA9D7C482:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: states.us-east-1.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RiegoStateMachine/Role/Resource
+  RiegoStateMachineRoleDefaultPolicy1DE74B4D:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - RiegoCultivoLambda29178F75
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - RiegoCultivoLambda29178F75
+                        - Arn
+                    - :*
+        Version: "2012-10-17"
+      PolicyName: RiegoStateMachineRoleDefaultPolicy1DE74B4D
+      Roles:
+        - Ref: RiegoStateMachineRoleA9D7C482
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RiegoStateMachine/Role/DefaultPolicy/Resource
+  RiegoStateMachine799748C0:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString:
+        Fn::Join:
+          - ""
+          - - '{"StartAt":"ConsultarHumedad","States":{"ConsultarHumedad":{"Next":"¿DebeRegar?","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","OutputPath":"$.Payload","Resource":"arn:'
+            - Ref: AWS::Partition
+            - :states:::lambda:invoke","Parameters":{"FunctionName":"
+            - Fn::GetAtt:
+                - RiegoCultivoLambda29178F75
+                - Arn
+            - '","Payload.$":"$"}},"¿DebeRegar?":{"Type":"Choice","Choices":[{"Variable":"$.debeRegar","BooleanEquals":true,"Next":"RiegoActivado"}],"Default":"EsperarSiguienteEjecucion"},"EsperarSiguienteEjecucion":{"Type":"Succeed"},"RiegoActivado":{"Type":"Succeed"}},"TimeoutSeconds":300}'
+      RoleArn:
+        Fn::GetAtt:
+          - RiegoStateMachineRoleA9D7C482
+          - Arn
+    DependsOn:
+      - RiegoStateMachineRoleDefaultPolicy1DE74B4D
+      - RiegoStateMachineRoleA9D7C482
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RiegoStateMachine/Resource
+  RiegoStateMachineEventsRole0282125F:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RiegoStateMachine/EventsRole/Resource
+  RiegoStateMachineEventsRoleDefaultPolicy383C341B:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: states:StartExecution
+            Effect: Allow
+            Resource:
+              Ref: RiegoStateMachine799748C0
+        Version: "2012-10-17"
+      PolicyName: RiegoStateMachineEventsRoleDefaultPolicy383C341B
+      Roles:
+        - Ref: RiegoStateMachineEventsRole0282125F
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/RiegoStateMachine/EventsRole/DefaultPolicy/Resource
+  TriggerProgramado3F4BA518:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Arn:
+            Ref: RiegoStateMachine799748C0
+          Id: Target0
+          RoleArn:
+            Fn::GetAtt:
+              - RiegoStateMachineEventsRole0282125F
+              - Arn
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/TriggerProgramado/Resource
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/31SwY7aMBD9lr0bF6jUOwR1xWorrUjVazQ4Q3Dj2MgzBiHL/17ZCenSQ09v5s3z2H4za7laLuXyBW60UG2/MPooY82genFAcsErFHCjJmoYZDw4g6I62YIfzmh1z+kYJUFfZdwG1SNndopG+Ct+ysdkC4T5dBNbvBh3H9CyHEu7mRBAhExykyEJA8OxBRmrk32HO/pf6Ek7K2ptO4Ps7PdgFWdmDqrTTCbhW5JxBwxHINxbYrAKRR2OFvnVu3DJ8t32M/FQ16j8+MXd9nEyCVRrGWtUwWu+zx3+T+xt55EoCSotaQALHfryq+mWEX6C75A3zKDOxYxZ8G8lic4ELB0e783iN3fMUDlrcXKAGC+nyQ9qGKgn+V5c3dur6/FZIGN1drpYpBRiK2oGxh+gztqWGz7nSeAVLZOMhzBtTDCYkqgCsRvmzcqFOX4qfXh31S16UcZdM3TadtPQG5MH3sCNlNFyc6PK6LIDSbzBFb6sVnIp199efpPWCx8s6wHlYcQ/DK0rZvACAAA=
+    Metadata:
+      aws:cdk:path: EtlCultivoSensoresStack/CDKMetadata/Default
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+

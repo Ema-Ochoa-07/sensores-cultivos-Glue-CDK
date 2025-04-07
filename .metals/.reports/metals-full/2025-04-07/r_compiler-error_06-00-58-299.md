@@ -1,3 +1,16 @@
+file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+### java.util.NoSuchElementException: next on empty iterator
+
+occurred in the presentation compiler.
+
+presentation compiler configuration:
+
+
+action parameters:
+offset: 3419
+uri: file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+text:
+```scala
 package com.myorg;
 
 import software.constructs.Construct;
@@ -39,6 +52,7 @@ import com.myorg.jobs.JobGlueViewS3;
 import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.services.rds.MysqlEngineVersion;
 
+
 public class EtlCultivoSensoresStack extends Stack {
 
     public EtlCultivoSensoresStack(final Construct scope, final String id, final StackProps props) {
@@ -48,10 +62,11 @@ public class EtlCultivoSensoresStack extends Stack {
         String region = this.getRegion();
 
         // =============================================
-        // CONSTANTES PARA NOMBRES DE BUCKETS (NOMBRES FIJOS)
+        // CONSTANTES PARA NOMBRES DE BUCKETS
         // =============================================
-        final String PROCESSED_DATA_BUCKET = "datos-cultivo-procesados";
-        final String GLUE_SCRIPTS_BUCKET = "mis-glue-scripts";
+        final String PROCESSED_DATA_BUCKET = "datos-cultivo-procesados-" + accountId + "-" + region;
+        final String GLUE_SCRIPTS_BUCKET = "mis-glue-scripts-" + accountId + "-" + region;
+        final String ATHENA_RESULTS_BUCKET = "athena-query-results-" + accountId + "-" + region;
 
         // Definir la VPC que se va a utlizar en las diferemtes funciones
         IVpc vpc = Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
@@ -66,7 +81,7 @@ public class EtlCultivoSensoresStack extends Stack {
             .managedPolicies(List.of(
                 ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSGlueServiceRole"),
                 ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"),
-                ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+                ManagedPolicy@@.fromAwsManagedPolicyName("AmazonS3FullAccess")
             ))
             .build();
 
@@ -83,11 +98,11 @@ public class EtlCultivoSensoresStack extends Stack {
             .enforceSsl(true)
             .lifecycleRules(List.of(
                 LifecycleRule.builder()
-                    .expiration(Duration.days(365))
+                    .expiration(Duration.days(365)) // Borrar objetos después de 1 año
                     .build()))
             .build();
 
-        //SUBIR LOS SCRIPTS AL BUCKET DE DATOS PROCESADOS (usado por Glue)
+        //SUBIR LOS SCRIPTS AL BUCKET
         new GlueScriptsUploader(this, "UploadGlueScripts", bucketSalida);
 
         // =============================================
@@ -141,7 +156,7 @@ public class EtlCultivoSensoresStack extends Stack {
             .build();
 
         // ==================================
-        // 7. BUCKET PARA SCRIPTS DE GLUE (YA NO SE USA, PERO SE MANTIENE)
+        // 7. BUCKET PARA SCRIPTS DE GLUE - CONFIGURACIÓN MEJORADA
         // ==================================
         Bucket scriptsBucket = Bucket.Builder.create(this, "GlueScriptsBucket")
             .bucketName(GLUE_SCRIPTS_BUCKET)
@@ -229,5 +244,64 @@ public class EtlCultivoSensoresStack extends Stack {
             .schedule(Schedule.rate(Duration.hours(1)))
             .targets(List.of(new SfnStateMachine(riegoFlow.getStateMachine())))
             .build();
+
+        // =========================================
+        // 11. CONFIGURACIÓN DE ATHENA PARA CONSULTAS - MEJORADA
+        // =========================================
+        Bucket athenaResultsBucket = Bucket.Builder.create(this, "AthenaResultsBucket")
+            .bucketName(ATHENA_RESULTS_BUCKET)
+            .removalPolicy(RemovalPolicy.DESTROY)
+            .autoDeleteObjects(true)
+            .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+            .encryption(BucketEncryption.S3_MANAGED)
+            .build();
+
+        CfnNamedQuery namedQuery = CfnNamedQuery.Builder.create(this, "AthenaNamedQuery")
+            .database("cultivo_db")
+            .queryString("SELECT * FROM datos_sensores LIMIT 10;")
+            .name("ConsultaPruebaSensores")
+            .description("Consulta de prueba sobre tabla sensores")
+            .workGroup("primary")
+            .build();
+
+        // Dar permisos a la Lambda para ejecutar consultas Athena
+        ((Role) riegoCultivoLambda.getRole()).addToPolicy(PolicyStatement.Builder.create()
+            .actions(List.of(
+                "athena:StartQueryExecution",
+                "athena:GetQueryResults",
+                "athena:GetQueryExecution",
+                "glue:GetTable",
+                "glue:GetDatabase",
+                "glue:GetPartition",
+                "s3:GetObject",
+                "s3:PutObject"
+            ))
+            .resources(List.of("*"))
+            .build());
+
+        // Permiso al bucket de resultados de Athena
+        athenaResultsBucket.grantReadWrite(riegoCultivoLambda);
     }
 }
+
+```
+
+
+
+#### Error stacktrace:
+
+```
+scala.collection.Iterator$$anon$19.next(Iterator.scala:973)
+	scala.collection.Iterator$$anon$19.next(Iterator.scala:971)
+	scala.collection.mutable.MutationTracker$CheckedIterator.next(MutationTracker.scala:76)
+	scala.collection.IterableOps.head(Iterable.scala:222)
+	scala.collection.IterableOps.head$(Iterable.scala:222)
+	scala.collection.AbstractIterable.head(Iterable.scala:935)
+	dotty.tools.dotc.interactive.InteractiveDriver.run(InteractiveDriver.scala:164)
+	dotty.tools.pc.CachingDriver.run(CachingDriver.scala:45)
+	dotty.tools.pc.HoverProvider$.hover(HoverProvider.scala:40)
+	dotty.tools.pc.ScalaPresentationCompiler.hover$$anonfun$1(ScalaPresentationCompiler.scala:389)
+```
+#### Short summary: 
+
+java.util.NoSuchElementException: next on empty iterator

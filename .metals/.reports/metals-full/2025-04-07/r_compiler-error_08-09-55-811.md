@@ -1,3 +1,16 @@
+file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+### java.util.NoSuchElementException: next on empty iterator
+
+occurred in the presentation compiler.
+
+presentation compiler configuration:
+
+
+action parameters:
+offset: 8926
+uri: file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+text:
+```scala
 package com.myorg;
 
 import software.constructs.Construct;
@@ -186,7 +199,7 @@ public class EtlCultivoSensoresStack extends Stack {
             .connectionInput(CfnConnection.ConnectionInputProperty.builder()
                 .connectionType("JDBC")
                 .connectionProperties(Map.of(
-                    "JDBC_CONNECTION_URL", "jdbc:mysql://" + rdsSensores.getDbInstanceEndpointAddress() + ":3306/cultivo_db",
+                    "JDBC_CONNECTION_URL", "jdbc:mysql://" + rdsSensores.@@getDbInstanceEndpointAddress() + ":3306/cultivo_db",
                     "USERNAME", "admin",
                     "PASSWORD", rdsSensores.getSecret().getSecretValue().unsafeUnwrap()
                 ))
@@ -231,3 +244,25 @@ public class EtlCultivoSensoresStack extends Stack {
             .build();
     }
 }
+
+```
+
+
+
+#### Error stacktrace:
+
+```
+scala.collection.Iterator$$anon$19.next(Iterator.scala:973)
+	scala.collection.Iterator$$anon$19.next(Iterator.scala:971)
+	scala.collection.mutable.MutationTracker$CheckedIterator.next(MutationTracker.scala:76)
+	scala.collection.IterableOps.head(Iterable.scala:222)
+	scala.collection.IterableOps.head$(Iterable.scala:222)
+	scala.collection.AbstractIterable.head(Iterable.scala:935)
+	dotty.tools.dotc.interactive.InteractiveDriver.run(InteractiveDriver.scala:164)
+	dotty.tools.pc.CachingDriver.run(CachingDriver.scala:45)
+	dotty.tools.pc.HoverProvider$.hover(HoverProvider.scala:40)
+	dotty.tools.pc.ScalaPresentationCompiler.hover$$anonfun$1(ScalaPresentationCompiler.scala:389)
+```
+#### Short summary: 
+
+java.util.NoSuchElementException: next on empty iterator

@@ -1,3 +1,16 @@
+file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+### java.util.NoSuchElementException: next on empty iterator
+
+occurred in the presentation compiler.
+
+presentation compiler configuration:
+
+
+action parameters:
+offset: 4173
+uri: file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+text:
+```scala
 package com.myorg;
 
 import software.constructs.Construct;
@@ -7,9 +20,7 @@ import software.amazon.awscdk.services.s3.BlockPublicAccess;
 import software.amazon.awscdk.services.s3.Bucket;
 import software.amazon.awscdk.services.s3.BucketEncryption;
 import software.amazon.awscdk.services.s3.LifecycleRule;
-import software.amazon.awscdk.services.rds.DatabaseInstance;
-import software.amazon.awscdk.services.rds.DatabaseInstanceEngine;
-import software.amazon.awscdk.services.rds.MySqlInstanceEngineProps;
+import software.amazon.awscdk.services.rds.*;
 import software.amazon.awscdk.services.ec2.Vpc;
 import software.amazon.awscdk.services.ec2.VpcLookupOptions;
 import software.amazon.awscdk.services.events.Rule;
@@ -19,7 +30,15 @@ import software.amazon.awscdk.services.iam.*;
 import software.amazon.awscdk.CfnOutput;
 import software.amazon.awscdk.services.s3.deployment.BucketDeployment;
 import software.amazon.awscdk.services.s3.deployment.Source;
-import software.amazon.awscdk.services.ec2.*;
+import software.amazon.awscdk.services.ec2.Connections;
+import software.amazon.awscdk.services.ec2.IVpc;
+import software.amazon.awscdk.services.ec2.InstanceClass;
+import software.amazon.awscdk.services.ec2.InstanceSize;
+import software.amazon.awscdk.services.ec2.InstanceType;
+import software.amazon.awscdk.services.ec2.SubnetSelection;
+import software.amazon.awscdk.services.ec2.SubnetType;
+import software.amazon.awscdk.services.ec2.Port;
+import software.amazon.awscdk.services.ec2.SecurityGroup;
 import software.amazon.awscdk.services.rds.Credentials;
 import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.Runtime;
@@ -31,13 +50,17 @@ import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.services.events.Schedule;
 import java.util.Map;
 import software.amazon.awscdk.services.athena.CfnNamedQuery;
+import software.amazon.awscdk.services.ec2.*;
+import software.amazon.awscdk.services.lambda.*;
 import software.amazon.awscdk.services.secretsmanager.*;
 import com.myorg.utils.GlueScriptsUploader;
+
 import java.util.*;
+
 import com.myorg.jobs.JobGlueConectRDS;
 import com.myorg.jobs.JobGlueViewS3;
+
 import software.amazon.awscdk.RemovalPolicy;
-import software.amazon.awscdk.services.rds.MysqlEngineVersion;
 
 public class EtlCultivoSensoresStack extends Stack {
 
@@ -48,27 +71,16 @@ public class EtlCultivoSensoresStack extends Stack {
         String region = this.getRegion();
 
         // =============================================
-        // CONSTANTES PARA NOMBRES DE BUCKETS (NOMBRES FIJOS)
+        // CONSTANTES PARA NOMBRES DE BUCKETS
         // =============================================
-        final String PROCESSED_DATA_BUCKET = "datos-cultivo-procesados";
-        final String GLUE_SCRIPTS_BUCKET = "mis-glue-scripts";
+        final String PROCESSED_DATA_BUCKET = "datos-cultivo-procesados-" + accountId + "-" + region;
+        final String GLUE_SCRIPTS_BUCKET = "mis-glue-scripts-" + accountId + "-" + region;
+        final String ATHENA_RESULTS_BUCKET = "athena-query-results-" + accountId + "-" + region;
 
         // Definir la VPC que se va a utlizar en las diferemtes funciones
         IVpc vpc = Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
             .vpcId("vpc-32a04b48") 
             .build());
-
-        // ==============================
-        // 4. ROL IAM PARA GLUE 
-        // ==============================
-        Role glueRole = Role.Builder.create(this, "GlueRoleCultivo")
-            .assumedBy(new ServicePrincipal("glue.amazonaws.com"))
-            .managedPolicies(List.of(
-                ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSGlueServiceRole"),
-                ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"),
-                ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
-            ))
-            .build();
 
         // =============================================
         // 1. BUCKET S3 PARA DATOS PROCESADOS - CONFIGURACIÓN MEJORADA
@@ -83,11 +95,14 @@ public class EtlCultivoSensoresStack extends Stack {
             .enforceSsl(true)
             .lifecycleRules(List.of(
                 LifecycleRule.builder()
-                    .expiration(Duration.days(365))
+                    .expiration(Duration.days(365)) // Borrar objetos después de 1 año
                     .build()))
             .build();
 
-        //SUBIR LOS SCRIPTS AL BUCKET DE DATOS PROCESADOS (usado por Glue)
+        // 👇 PERMISOS PARA QUE GLUE PUEDA LEER LOS SCRIPTS DEL BUCKET DE SALIDA
+        bucketSalida.grantRead(glueR@@ole); // <-- AGREGADO
+
+        //SUBIR LOS SCRIPTS AL BUCKET
         new GlueScriptsUploader(this, "UploadGlueScripts", bucketSalida);
 
         // =============================================
@@ -108,9 +123,6 @@ public class EtlCultivoSensoresStack extends Stack {
             .storageEncrypted(true)
             .build();
 
-        // Grant acceso al secret generado automáticamente
-        rdsSensores.getSecret().grantRead(glueRole);
-
         // =============================================
         // 2.1 PERMITIR ACCESO AL PUERTO 3306 (MYSQL)
         // =============================================
@@ -127,6 +139,34 @@ public class EtlCultivoSensoresStack extends Stack {
                 .build())
             .build();
 
+        // ==============================
+        // 4. ROL IAM PARA GLUE 
+        // ==============================
+        Role glueRole = Role.Builder.create(this, "GlueRoleCultivo")
+            .assumedBy(new ServicePrincipal("glue.amazonaws.com"))
+            .managedPolicies(List.of(
+                ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSGlueServiceRole"),
+                ManagedPolicy.fromAwsManagedPolicyName("AmazonRDSFullAccess"),
+                ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+            ))
+            .build();
+
+        // Grant acceso al secret generado automáticamente
+        rdsSensores.getSecret().grantRead(glueRole);
+
+        // =================================================
+        // 5. OUTPUTS (ENDPOINT RDS Y SECRET)
+        // =================================================
+        CfnOutput.Builder.create(this, "RdsEndpointOutput")
+            .value(rdsSensores.getDbInstanceEndpointAddress())
+            .description("Endpoint de RDS MySQL para conexiones externas")
+            .build();
+
+        CfnOutput.Builder.create(this, "RdsSecretNameOutput")
+            .value(rdsSensores.getSecret().getSecretName())
+            .description("Nombre del Secret en AWS Secrets Manager")
+            .build();
+
         // ==================================
         // 6. ROL PARA DESPLIEGUE DE SCRIPTS
         // ==================================
@@ -141,7 +181,7 @@ public class EtlCultivoSensoresStack extends Stack {
             .build();
 
         // ==================================
-        // 7. BUCKET PARA SCRIPTS DE GLUE (YA NO SE USA, PERO SE MANTIENE)
+        // 7. BUCKET PARA SCRIPTS DE GLUE - CONFIGURACIÓN MEJORADA
         // ==================================
         Bucket scriptsBucket = Bucket.Builder.create(this, "GlueScriptsBucket")
             .bucketName(GLUE_SCRIPTS_BUCKET)
@@ -155,7 +195,6 @@ public class EtlCultivoSensoresStack extends Stack {
 
         // Conceder permisos explícitos al rol de Glue
         scriptsBucket.grantReadWrite(glueRole);
-        bucketSalida.grantReadWrite(glueRole);
 
         // =====================================
         // 8. JOBS DE GLUE (USANDO TUS CLASES EXISTENTES)
@@ -229,5 +268,64 @@ public class EtlCultivoSensoresStack extends Stack {
             .schedule(Schedule.rate(Duration.hours(1)))
             .targets(List.of(new SfnStateMachine(riegoFlow.getStateMachine())))
             .build();
+
+        // =========================================
+        // 11. CONFIGURACIÓN DE ATHENA PARA CONSULTAS - MEJORADA
+        // =========================================
+        Bucket athenaResultsBucket = Bucket.Builder.create(this, "AthenaResultsBucket")
+            .bucketName(ATHENA_RESULTS_BUCKET)
+            .removalPolicy(RemovalPolicy.DESTROY)
+            .autoDeleteObjects(true)
+            .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+            .encryption(BucketEncryption.S3_MANAGED)
+            .build();
+
+        CfnNamedQuery namedQuery = CfnNamedQuery.Builder.create(this, "AthenaNamedQuery")
+            .database("cultivo_db")
+            .queryString("SELECT * FROM datos_sensores LIMIT 10;")
+            .name("ConsultaPruebaSensores")
+            .description("Consulta de prueba sobre tabla sensores")
+            .workGroup("primary")
+            .build();
+
+        // Dar permisos a la Lambda para ejecutar consultas Athena
+        ((Role) riegoCultivoLambda.getRole()).addToPolicy(PolicyStatement.Builder.create()
+            .actions(List.of(
+                "athena:StartQueryExecution",
+                "athena:GetQueryResults",
+                "athena:GetQueryExecution",
+                "glue:GetTable",
+                "glue:GetDatabase",
+                "glue:GetPartition",
+                "s3:GetObject",
+                "s3:PutObject"
+            ))
+            .resources(List.of("*"))
+            .build());
+
+        // Permiso al bucket de resultados de Athena
+        athenaResultsBucket.grantReadWrite(riegoCultivoLambda);
     }
 }
+
+```
+
+
+
+#### Error stacktrace:
+
+```
+scala.collection.Iterator$$anon$19.next(Iterator.scala:973)
+	scala.collection.Iterator$$anon$19.next(Iterator.scala:971)
+	scala.collection.mutable.MutationTracker$CheckedIterator.next(MutationTracker.scala:76)
+	scala.collection.IterableOps.head(Iterable.scala:222)
+	scala.collection.IterableOps.head$(Iterable.scala:222)
+	scala.collection.AbstractIterable.head(Iterable.scala:935)
+	dotty.tools.dotc.interactive.InteractiveDriver.run(InteractiveDriver.scala:164)
+	dotty.tools.pc.CachingDriver.run(CachingDriver.scala:45)
+	dotty.tools.pc.HoverProvider$.hover(HoverProvider.scala:40)
+	dotty.tools.pc.ScalaPresentationCompiler.hover$$anonfun$1(ScalaPresentationCompiler.scala:389)
+```
+#### Short summary: 
+
+java.util.NoSuchElementException: next on empty iterator

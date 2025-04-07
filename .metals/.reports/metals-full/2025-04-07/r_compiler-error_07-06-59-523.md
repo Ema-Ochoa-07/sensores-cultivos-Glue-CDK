@@ -1,3 +1,16 @@
+file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+### java.util.NoSuchElementException: next on empty iterator
+
+occurred in the presentation compiler.
+
+presentation compiler configuration:
+
+
+action parameters:
+offset: 2716
+uri: file:///C:/Users/ORTEL/Documents/Enmanuel/AWS/Fund.SEPAV/2%20StepFunct%20-%20GLUE%20Sparck-%20%20%5BBIG%20DATA%5D/etl-cultivo-sensores/src/main/java/com/myorg/EtlCultivoSensoresStack.java
+text:
+```scala
 package com.myorg;
 
 import software.constructs.Construct;
@@ -54,7 +67,7 @@ public class EtlCultivoSensoresStack extends Stack {
         final String GLUE_SCRIPTS_BUCKET = "mis-glue-scripts";
 
         // Definir la VPC que se va a utlizar en las diferemtes funciones
-        IVpc vpc = Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOptions.builder()
+        IVpc vpc = Vpc.fromLookup(this, "SensorCultivoVpc", VpcLookupOpt@@ions.builder()
             .vpcId("vpc-32a04b48") 
             .build());
 
@@ -229,5 +242,64 @@ public class EtlCultivoSensoresStack extends Stack {
             .schedule(Schedule.rate(Duration.hours(1)))
             .targets(List.of(new SfnStateMachine(riegoFlow.getStateMachine())))
             .build();
+
+        // =========================================
+        // 11. CONFIGURACIÓN DE ATHENA PARA CONSULTAS - MEJORADA
+        // =========================================
+        Bucket athenaResultsBucket = Bucket.Builder.create(this, "AthenaResultsBucket")
+            .bucketName(ATHENA_RESULTS_BUCKET)
+            .removalPolicy(RemovalPolicy.DESTROY)
+            .autoDeleteObjects(true)
+            .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+            .encryption(BucketEncryption.S3_MANAGED)
+            .build();
+
+        CfnNamedQuery namedQuery = CfnNamedQuery.Builder.create(this, "AthenaNamedQuery")
+            .database("cultivo_db")
+            .queryString("SELECT * FROM datos_sensores LIMIT 10;")
+            .name("ConsultaPruebaSensores")
+            .description("Consulta de prueba sobre tabla sensores")
+            .workGroup("primary")
+            .build();
+
+        // Dar permisos a la Lambda para ejecutar consultas Athena
+        ((Role) riegoCultivoLambda.getRole()).addToPolicy(PolicyStatement.Builder.create()
+            .actions(List.of(
+                "athena:StartQueryExecution",
+                "athena:GetQueryResults",
+                "athena:GetQueryExecution",
+                "glue:GetTable",
+                "glue:GetDatabase",
+                "glue:GetPartition",
+                "s3:GetObject",
+                "s3:PutObject"
+            ))
+            .resources(List.of("*"))
+            .build());
+
+        // Permiso al bucket de resultados de Athena
+        athenaResultsBucket.grantReadWrite(riegoCultivoLambda);
     }
 }
+
+```
+
+
+
+#### Error stacktrace:
+
+```
+scala.collection.Iterator$$anon$19.next(Iterator.scala:973)
+	scala.collection.Iterator$$anon$19.next(Iterator.scala:971)
+	scala.collection.mutable.MutationTracker$CheckedIterator.next(MutationTracker.scala:76)
+	scala.collection.IterableOps.head(Iterable.scala:222)
+	scala.collection.IterableOps.head$(Iterable.scala:222)
+	scala.collection.AbstractIterable.head(Iterable.scala:935)
+	dotty.tools.dotc.interactive.InteractiveDriver.run(InteractiveDriver.scala:164)
+	dotty.tools.pc.CachingDriver.run(CachingDriver.scala:45)
+	dotty.tools.pc.HoverProvider$.hover(HoverProvider.scala:40)
+	dotty.tools.pc.ScalaPresentationCompiler.hover$$anonfun$1(ScalaPresentationCompiler.scala:389)
+```
+#### Short summary: 
+
+java.util.NoSuchElementException: next on empty iterator

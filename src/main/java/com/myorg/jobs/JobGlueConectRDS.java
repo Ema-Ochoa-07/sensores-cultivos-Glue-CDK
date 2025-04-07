@@ -17,7 +17,7 @@ public class JobGlueConectRDS extends Construct {
             .role(glueRole.getRoleArn())
             .command(CfnJob.JobCommandProperty.builder()
                 .name("glueetl")
-                .scriptLocation("s3://" + bucketSalida.getBucketName() + "/scripts/extract-cultivo-rds-to-s3.scala")
+                .scriptLocation("s3://datos-cultivo-procesados/scripts/extract-cultivo-rds-to-s3.scala")
                 .build())
             .defaultArguments(Map.of(
                 "--RDS_ENDPOINT", rdsSensores.getDbInstanceEndpointAddress(),

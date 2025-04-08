@@ -1,31 +1,39 @@
 package com.myorg.jobs;
 
+import software.amazon.awscdk.services.glue.CfnJob;
+import software.amazon.awscdk.services.iam.IRole;
 import software.constructs.Construct;
-import software.amazon.awscdk.services.glue.*;
-import software.amazon.awscdk.services.rds.*;
-import software.amazon.awscdk.services.s3.*;
-import software.amazon.awscdk.services.iam.*;
+import software.amazon.awscdk.services.s3.Bucket;
+
+import java.util.HashMap;
 import java.util.Map;
 
 public class JobGlueConectRDS extends Construct {
 
-    public JobGlueConectRDS(Construct scope, String id, IRole glueRole, DatabaseInstance rdsSensores, Bucket bucketSalida, String accountId) {
+    public JobGlueConectRDS(final Construct scope, final String id, IRole glueJobRole, Bucket outputBucket, String scriptLocation) {
         super(scope, id);
 
-        CfnJob.Builder.create(this, "JobGlueConectRDS")
+        // Argumentos que el script de Glue necesita
+        Map<String, Object> defaultArgs = new HashMap<>();
+        defaultArgs.put("--class", "GlueApp"); // opcional si es Spark Scala
+        defaultArgs.put("--extra-jars", "s3://datos-cultivo-procesados/drivers/mysql-connector-j-9.2.0.jar");
+
+        // Agregamos el parámetro de salida
+        defaultArgs.put("--out_path", "s3://" + outputBucket.getBucketName() + "/myData/");
+
+        // Crear el Glue Job
+        CfnJob glueJob = CfnJob.Builder.create(this, "GlueJobExtraccionRDS")
             .name("extraccion-rds-cultivo")
-            .role(glueRole.getRoleArn())
+            .role(glueJobRole.getRoleArn())
             .command(CfnJob.JobCommandProperty.builder()
                 .name("glueetl")
-                .scriptLocation("s3://datos-cultivo-procesados/scripts/extract-cultivo-rds-to-s3.scala")
+                .scriptLocation("s3://datos-cultivo-procesados/scripts/extraccion_rds_cultivo.scala")
+                .pythonVersion("3") 
                 .build())
-            .defaultArguments(Map.of(
-                "--RDS_ENDPOINT", rdsSensores.getDbInstanceEndpointAddress(),
-                "--RDS_DB_NAME", "cultivo_db",
-                "--SECRET_NAME", rdsSensores.getSecret().getSecretName(),
-                "--S3_OUTPUT_PATH", "s3://" + bucketSalida.getBucketName() + "/raw-data/"
-            ))
-            .glueVersion("4.0")
+            .defaultArguments(defaultArgs)
+            .glueVersion("3.0")
+            .numberOfWorkers(2)
+            .workerType("G.1X")
             .build();
     }
 }
